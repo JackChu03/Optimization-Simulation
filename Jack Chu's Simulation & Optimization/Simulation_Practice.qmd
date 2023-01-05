@@ -1,0 +1,189 @@
+---
+title: "Homework 3"
+author: "Your Name Here"
+format: html
+---
+
+## Problem 1 -- Angering The Flying Public
+
+A small airline (MSBaiR) is looking to bring their ticketing system into the 21st century. In an effort to keep up with the big companies, MSBaiR wants to overbook passengers in an attempt to mitigate flying without a full plane. Based upon historical data, they know the probability of seeing specific demands:
+
+```{r}
+demand_probability <- read.table(text = "
+demand probability
+14	0.03
+15	0.05
+16	0.07
+17	0.09
+18	0.11
+19	0.15
+20	0.18
+21	0.14
+22	0.08
+23	0.05
+24	0.03
+25	0.02
+", header = TRUE)
+
+demand_probability
+
+```
+
+Their planes will sit a total of 19 passengers and they offer a flat ticket price of \$250. The know that the probability of a passenger not showing up is pretty high, at about .1. MSBaiR anticipates that it will cost about \$400 dollars if they have to bump a passenger from a flight. 
+I2what is the anticipated cost of this strategy? Run at least 10000 simulations.
+
+```{r}
+demand_probability <- read.table(text = "
+demand probability
+14	0.03
+15	0.05
+16	0.07
+17	0.09
+18	0.11
+19	0.15
+20	0.18
+21	0.14
+22	0.08
+23	0.05
+24	0.03
+25	0.02
+", header = TRUE)
+
+demand_probability
+
+all_results <- replicate(10000, expr={
+cost <- 400
+demand <- sample(demand_probability$demand, 1, prob = demand_probability$probability)
+actual <- sum(rbinom(demand, 1, .9))
+if(actual > 19){
+  t_cost <- (actual-19)*cost
+}else{
+  t_cost <- 0}
+t_cost
+})
+all_results
+mean(all_results)
+```
+
+
+
+## Problem 2 -- A Naive Game Simulation
+
+The Golden State Warriors defeated the Boston Celtics for the NBA championship last year. Before the series started, the Celtics were favored to win. 
+
+Using the `nba_data` file in the data folder, you are going to run 500000 simulations. The data contains the box score information from every game during last year's regular season. We won't worry about all of the intricacy of game simulations, but we can keep it easy instead. Use the `PTS` column to find each player's point distribution over all of the games played. With each player's individual distribution (you can make an assumption for normality here) produce total points for each team, over those half a million simulations. After all of those simulations, who would have won the most games?
+
+```{r}
+library(dplyr)
+library(doParallel) 
+library(foreach)
+library(furrr)
+library(future)
+library(purrr)
+library(rvest)
+
+nba_data <- read.csv("https://www.nd.edu/~sberry5/data/nba_data.csv")
+GWS_data <- nba_data %>%
+  filter(TEAM_NAME == 'Golden State Warriors')
+BOS_data <- nba_data %>%
+  filter(TEAM_NAME == 'Boston Celtics')
+
+GWS_player_data_mean <- GWS_data %>%
+  group_by(PLAYER_NAME) %>% 
+  summarise(player = mean(PTS))
+
+GWS_player_data_std <- GWS_data %>%
+  group_by(PLAYER_NAME) %>% 
+  summarise(player = sd(PTS))
+
+BOS_player_data_mean <- BOS_data %>%
+  group_by(PLAYER_NAME) %>% 
+  summarise(player = mean(PTS))
+
+BOS_player_data_std <- BOS_data %>%
+  group_by(PLAYER_NAME) %>% 
+  summarise(player = sd(PTS))
+BOS_player_data_std <- replace(BOS_player_data_std, is.na(BOS_player_data_std), 0)
+
+plan(multisession, workers = parallel::detectCores() - 1)
+
+all_results <- future_map_chr(1:500000, ~{
+GWSstats <- rnorm(17, GWS_player_data_mean$player ,GWS_player_data_std$player)
+GWSstats[GWSstats< 0] <- 0
+GWS_Total <- sum(GWSstats)
+
+BOSstats <- rnorm(17, BOS_player_data_mean$player ,BOS_player_data_std$player)
+BOSstats[BOSstats< 0] <- 0
+BOS_Total <-sum(BOSstats)
+
+if(GWS_Total > BOS_Total){
+    winner <- "GWS win"
+  } else{winner <- "BC win"}
+})
+
+table(all_results)
+
+```
+
+## Problem 3 -- Everyone Loves Airport Security
+
+A passenger arrives to security at a rate of 1 person every 30 seconds. 
+
+The first inspection point has a mean working time of 1 minute with a 
+standard deviation of .1 minutes. After completing the initial screen, 10% of people are selected for enhanced screening. This extra security station takes an average of 5 minutes, with a standard deviation of 1 minute. All inspection points can handle 2 people at a time.
+
+Run the simulation for 3 hours worth of time. 
+
+Testing proportions of .1 to .4 (by .05), what proportion of passengers can pass through the additional screening line and still keep the overall waiting time under 10 minutes?
+
+There is some code to get you started, but remember where your distributions should go in the trajectory and the generator. Also, keep track of what should go into the prob statement of the branch.
+
+```{r}
+library(simmer)
+library(magrittr)
+library(dplyr)
+
+x <- seq(0.1, 0.4, 0.05)
+
+so <- purrr::map_df(.x = x, ~{
+ inspect <- trajectory("security") %>%
+  seize("inspect") %>%
+  timeout(function() rnorm(1, 1, 0.1)) %>%
+  release("inspect") %>% 
+  branch(function() sample(1:2, 1, prob = c(.x, 1-.x)),  
+         continue = c(TRUE, TRUE), 
+         trajectory() %>%
+           seize("enhanced") %>% 
+           timeout(function() rnorm(1, 5, 1)) %>% 
+           release("enhanced"),
+          trajectory() %>%
+            seize("No") %>% 
+            timeout(function() 0) %>% 
+            release("No")) 
+ 
+
+ 
+#simmer is to create an environment, command+shift+M %>% 
+environment <- simmer("environment") %>%
+  add_resource("inspect", capacity = 2, queue_size = Inf) %>%
+  add_resource("enhanced", capacity = 2, queue_size = Inf) %>%
+  add_resource("No", capacity = 1, queue_size = Inf) %>%
+  add_generator("inspect_", inspect, function() c(0, rexp(10000, 2)))
+  
+run(environment , until = 60*3)
+
+sim_data <- get_mon_arrivals(environment)
+
+#View(sim_data)
+
+sim_data$wait_time <- sim_data$end_time -
+  sim_data$start_time -
+  sim_data$activity_time
+
+df <- data.frame(first_column  = mean(sim_data$wait_time) )
+})
+so
+```
+
+
+

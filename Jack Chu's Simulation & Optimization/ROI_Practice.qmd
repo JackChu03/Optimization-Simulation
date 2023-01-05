@@ -1,0 +1,123 @@
+---
+title: "HW2"
+format: html
+editor: visual
+---
+
+```{r}
+##################
+### Homework 2 ###
+##################
+
+## Step 1: Get the data ##
+
+# This will be a first foray into scraping for many of you.
+# You will quickly get addicted.
+
+# We need the rvest package to harvest data.
+library(ROI)
+library(ROI.plugin.glpk)
+library(ompr)
+library(ompr.roi)
+library(rvest)
+
+# First, we read the entire page in
+cyclists <- read_html("https://www.procyclingstats.com/rankings/me/individual") %>% 
+  # Then, we extract all of the tables on the page
+  html_table() %>% 
+  # And then we pull out the first table
+  `[[`(1)
+
+# This will leave you with a data frame containing 100 cyclists.
+
+## Step 2: Create a dummy column for Team Jumbo-Visma ##
+
+# I'd like to create a binary indicator column (i.e., dummy column)
+
+# I want to give a 1 to everyone on that team and a 0 to those not on that team.
+
+# The ifelse function is handy for testing a condition and providing values
+# for the true condition, the first value, and the false condition. 
+
+cyclists$jumbo_dummy <- ifelse(test = cyclists$Team == "Jumbo-Visma", 
+                              yes = 1, 
+                              no = 0)
+
+# Check to make sure it worked. If you sum all of your 1's:
+ 
+sum(cyclists$jumbo_dummy)
+
+# It should be the same value here:
+
+summary(as.factor(cyclists$Team))
+
+## Step 3: Create a dummy for Quick-Step Alpha Vinyl Team
+
+# I'll do the same thing, but with Quick-Step Alpha Vinyl Team.
+
+cyclists$quick_dummy <- ifelse(cyclists$Team == "Quick-Step Alpha Vinyl Team", 1, 0)
+
+# Quick Dummy just so happened to be my nickname in track.
+
+# Now that you have your data prepped and ready, 
+# You need to save your data and then load
+# it into a qmd file.
+
+save(cyclists, file = "cyclist_data.RData")
+
+# Just as a reminder, this is how you load RData:
+
+load("cyclist_data.RData")
+
+# You don't assign it, because the object(s) you are loading is/are already names
+
+## Step 4: Build the team ##
+ 
+# I want you to build a team of 10 distinct riders.
+# You want your team to have as high of a point average as possible.
+# Naturally, there are a few rules to handle:
+# 1. You can only have one rider from Jumbo-Visma (all my friends hate them)
+# 2. You have to have at least two riders from Quick-Step Alpha Vinyl Team
+
+# Who is on your team?
+
+library(ROI)
+library(ROI.plugin.glpk)
+
+points <- as.matrix(cyclists["Points"])
+
+jumble <- as.matrix(cyclists["jumbo_dummy"])
+
+alpha <- as.matrix(cyclists["quick_dummy"])
+
+obj_val <- t(points)
+
+con_margins <- c(10, 1, 2)
+
+con_dirs <- c("==","==",">=")
+
+A_mat <- cbind(rep(1, length(100)), jumble, alpha)
+
+AA_mat <- t(A_mat)
+
+total_constraints <- L_constraint(L = AA_mat, 
+                                  dir = con_dirs, 
+                                  rhs = con_margins)
+
+model_create <- OP(objective = obj_val, constraints = total_constraints, 
+                   types = rep('B', length(obj_val)), maximum = TRUE)
+
+model_solved <- ROI_solve(model_create)
+
+model_solved$solution
+
+##ANS:
+##Pogačar Tadej, Evenepoel Remco, van Aert Wout, Vlasov Aleksandr, Pedersen Mads
+##Bilbao Pello, Kristoff Alexander, Valverde Alejandro, Philipsen Jasper, Jakobsen 
+##Fabio are on the team
+
+```
+
+```{r}
+
+```

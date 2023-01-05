@@ -1,0 +1,517 @@
+---
+title: "Optimization Never Goes Away"
+output:
+  revealjs::revealjs_presentation:
+    theme: black
+    highlight: pygments
+    center: true
+    transition: concave
+---
+
+```{r setup, include=FALSE}
+# Your warning and message options should almost always be FALSE.
+# Keep echo = FALSE when doing presentations.
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, comment = "")
+```
+
+
+## Where Is It? {data-transition="slide-in fade-out"}
+
+> - We have used optimization in the context of "business".
+
+> - You will see it repeatedly.
+
+> - Even if you don't know you are seeing it.
+
+## 
+
+<!-- The following code just enables for two column layouts within a slide: -->
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+</style>
+
+<div class="col2">
+1. Triangle Distribution
+
+2. Logistic Regression
+
+</div>
+
+
+
+## Stocking Shelves
+
+> - Assume you are the boss of Cloud, what should you do to maximize the profit?
+
+> - Remember! You need to be aware of your budget!
+
+> - Which product you want to produce the most?
+
+```{r}
+data.frame(product = c("flower (3.5 grams)", "pre-rolls (1 gram)", 
+                       "concentrates (1 gram)", "edibles (100 mg)"), 
+           price = c(45, 12, 60, 15), 
+           cost = c(25, 5, 50, 10), 
+           demand = c(37, 15, 20, 28)) |>
+  flextable::flextable(cwidth = 2.5, cheight = .15)
+```
+
+
+```{r}
+c_vec_cloud <- c(45, 12, 60, 15)
+
+b_vec_cloud <- c(850000, 
+                 850000 * 0.37, 
+                 850000 * 0.15, 
+                 850000 * 0.2, 
+                 850000* 0.28)
+
+a_mat_cloud <- rbind(c(25, 5, 50, 10),
+                     c(25, 0, 0, 0),
+                     c(0, 5, 0, 0),
+                     c(0, 0, 50, 0),
+                     c(0, 0, 0, 10))
+
+cons_dir_cloud <- c("<=", rep("==", 4))
+
+linprog::solveLP(c_vec_cloud,
+                 b_vec_cloud,
+                 a_mat_cloud,
+                 maximum = TRUE,
+                 cons_dir_cloud,
+                 lpSolve = TRUE)
+```
+
+
+## Consumers: A Fickle Bag
+
+> - Is the above situation reasonable in real life?
+
+> - Of course not! Demand varies all the time!
+
+> - Let's assume concentrates and edibles will vary between 0.25 and 0,5.
+
+
+```{r}
+concentrates_var <- seq(0.25, 0.5, 0.01)
+
+varying_demand_con <- purrr::map_df(.x = concentrates_var, ~{
+  
+  c_vec_shift_con <- c(45, 12, 60, 15)
+  
+  b_vec_shift_con <- c(850000,
+                       850000 * 0.37 - 850000 * (.x - 0.2) / 3 * 0.37,
+                       850000 * 0.15 - 850000 * (.x - 0.2) / 3 * 0.15,
+                       850000 * .x,
+                       850000 * 0.28 - 850000 * (.x - 0.2) / 3 * 0.28)
+  
+  a_mat_shift_con <- rbind(c(25, 5, 50, 10),
+                           c(25, 0, 0, 0),
+                           c(0, 5, 0, 0),
+                           c(0, 0, 50, 0),
+                           c(0, 0, 0, 10))
+  
+  cons_dir_shift_con <- c("<=", rep("<=", 4))
+  
+  con_maximization <- linprog::solveLP(c_vec_shift_con,
+                                       b_vec_shift_con,
+                                       a_mat_shift_con,
+                                       maximum = TRUE,
+                                       cons_dir_shift_con,
+                                       lpSolve = TRUE)
+  
+  cons_solution <- data.frame(concentrates_demand = .x, 
+                              max_revenue = con_maximization$opt, 
+                              t(con_maximization$solution))
+  
+  cons_solution
+})
+
+varying_demand_con
+
+edibles_var <- seq(0.25, 0.5, 0.01)
+
+varing_demand_edi <- purrr::map_df(.x = edibles_var, ~{
+
+  c_vec_shift_edi <- c(45, 12, 60, 15)
+
+  b_vec_shift_edi <- c(850000,
+                 850000 * 0.37 - 850000 * (.x - 0.28) / 3 * 0.37,
+                 850000 * 0.15 - 850000 * (.x - 0.28) / 3 * 0.15,
+                 850000 * 0.2 - 850000 * (.x - 0.28) / 3 * 0.2,
+                 850000 * .x)
+
+  a_mat_shift_edi <- rbind(c(25, 5, 50, 10),
+                     c(25, 0, 0, 0),
+                     c(0, 5, 0, 0),
+                     c(0, 0, 50, 0),
+                     c(0, 0, 0, 10))
+
+  cons_dir_shift_edi <- c("<=", rep("<=", 4))
+
+  edi_maximization <- linprog::solveLP(c_vec_shift_edi,
+                 b_vec_shift_edi,
+                 a_mat_shift_edi,
+                 maximum = TRUE,
+                 cons_dir_shift_edi,
+                 lpSolve = TRUE)
+
+  edi_solution <- data.frame(edibles_demand = .x, 
+                             max_revenue = edi_maximization$opt,
+                             t(edi_maximization$solution))
+  
+  edi_solution
+})
+
+varing_demand_edi
+
+```
+
+
+
+
+## Moving Product 
+> - Decide how to minimize the shipping cost from suppliers".
+![alt text here](11.png)
+
+
+## Moving Product 
+> - Total limited Suppy from Each Provider & Total Deamand for Each Store".
+![alt text here](22.png)
+
+
+
+## Moving Product (Function)
+```{r, echo = TRUE}
+cost <- c(BA = 10,
+          BM = 8,
+          BU = 12,
+          BT = 20,
+          HA = 10,
+          HM = 8,
+          HU = 12,
+          HT = 20,
+          HZA = 5,
+          HZM = 10,
+          HZU = 5,
+          HZT = 25,
+          RA = 10,
+          RM = 8,
+          RU = 12,
+          RT = 20)
+  
+SD <- c(700, 300, 550, 420, 650, 200, 450, 250)
+
+
+chain <- rbind(       BS = c(1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                      HS = c(0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0),
+                      HZS = c(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0),
+                      RS = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1),
+                      AD = c(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0),
+                      MD = c(0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0),
+                      UD = c(0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0),
+                      TD = c(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1))
+
+  
+con_dir <- c(rep("<=", 4), rep("==", 4))
+```
+
+
+## Moving Product (Solution)
+```{r}
+cost <- c(BA = 10,
+          BM = 8,
+          BU = 12,
+          BT = 20,
+          HA = 10,
+          HM = 8,
+          HU = 12,
+          HT = 20,
+          HZA = 5,
+          HZM = 10,
+          HZU = 5,
+          HZT = 25,
+          RA = 10,
+          RM = 8,
+          RU = 12,
+          RT = 20)
+  
+SD <- c(700, 300, 550, 420, 650, 200, 450, 250)
+
+
+chain <- rbind(       BS = c(1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                      HS = c(0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0),
+                      HZS = c(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0),
+                      RS = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1),
+                      AD = c(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0),
+                      MD = c(0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0),
+                      UD = c(0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0),
+                      TD = c(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1))
+
+  
+con_dir <- c(rep("<=", 4), rep("==", 4))
+
+linprog::solveLP(cvec = cost, bvec = SD, Amat = chain, const.dir = con_dir, maximum = FALSE, lpSolve = TRUE)
+```
+
+
+
+## From sales to scales 
+> - How many products approximately can Cloud make out in two years? (A Random test for 2 years time".)
+```{r, echo = TRUE}
+library(simmer)
+# time unit in days
+production_ <- trajectory("produce") %>% 
+    seize("flowering") %>% 
+    timeout(function() runif(1, 56, 77)) %>% 
+    release("flowering") %>% 
+    seize("drying") %>% 
+    timeout(function() runif(1, 7, 10)) %>% 
+    release("drying") %>% 
+    branch(function() sample(1:2, 1, prob = c(0.45, 0.55)), continue = c(TRUE, TRUE),
+           trajectory() %>% 
+             seize("trimming") %>% 
+             timeout(function() rnorm(1, 1/24, (1/24)/4)) %>% 
+             release("trimming") %>% 
+             seize("curing") %>% 
+             timeout(function() runif(1, 30, 120)) %>% 
+             log_("flowerfinish") %>% 
+             release("curing"),
+           trajectory() %>%  
+             seize("freeze") %>% 
+             timeout(function() (1/24)/3) %>% 
+             release("freeze") %>% 
+             seize("extraction") %>% 
+             timeout(function() rnorm(1, (1/24)/4, (1/24)/4/7.5)) %>% 
+             release("extraction") %>% 
+             seize("filtration") %>% 
+             timeout(function() rnorm(1, 1/24, 1/24/7.5)) %>% 
+             release("filtration") %>% 
+             seize("solvent") %>% 
+             timeout(function() 1/24) %>% 
+             release("solvent") %>% 
+             seize("decarbonization") %>% 
+             timeout(function() rnorm(1, 2, 1/3)) %>% 
+             release("decarbonization") %>% 
+             seize("distillation") %>% 
+             timeout(function() rnorm(1, 18/24, 1/12)) %>% 
+             log_("Concerntratesfinish") %>% 
+             release("distillation")) 
+  
+  
+  First_Grow <- simmer() %>% 
+    add_resource("flowering", capacity = 1, queue_size = Inf) %>% 
+    add_resource("drying", capacity = 1, queue_size = Inf) %>% 
+    add_resource("trimming", capacity = 1, queue_size = Inf) %>% 
+    add_resource("curing", capacity = 1, queue_size = Inf) %>% 
+    add_resource("freeze", capacity = 1, queue_size = Inf) %>% 
+    add_resource("extraction", capacity = 1, queue_size = Inf) %>% 
+    add_resource("filtration", capacity = 1, queue_size = Inf) %>% 
+    add_resource("solvent", capacity = 1, queue_size = Inf) %>% 
+    add_resource("decarbonization", capacity = 1, queue_size = Inf) %>% 
+    add_resource("distillation", capacity = 1, queue_size = Inf) %>% 
+    add_generator("production_", production_, mon = 2, function() c(0, rexp(1000, 1/10), -1))
+
+  
+simmer::run(First_Grow, 365*2)
+```
+
+## From sales to scales 
+> - How many products approximately can Cloud make out in two years?".
+> - A Random test for 2 years time".
+![alt text here](33.png) 
+
+
+## From sales to scales 
+> - What's the time length for the first finished product to be made out by testing 500 times?".
+```{r, echo = TRUE}
+library(simmer)
+
+# time unit in days
+x <- purrr::map_df(1:500, ~{
+
+production <- trajectory("produce") %>% 
+    seize("flowering") %>% 
+    timeout(function() runif(1, 56, 77)) %>% 
+    release("flowering") %>% 
+    seize("drying") %>% 
+    timeout(function() runif(1, 7, 10)) %>% 
+    release("drying") %>% 
+    branch(function() sample(1:2, 1, prob = c(0.45, 0.55)), continue = c(TRUE, TRUE),
+          trajectory() %>% 
+            seize("trimming") %>% 
+            timeout(function() rnorm(1, 1/24, (1/24)/4)) %>% 
+            release("trimming") %>% 
+            seize("curing") %>% 
+            timeout(function() runif(1, 30, 120)) %>% 
+            release("curing"),
+          trajectory() %>%  
+            seize("freeze") %>% 
+            timeout(function() (1/24)/3) %>% 
+            release("freeze") %>% 
+            seize("extraction") %>% 
+            timeout(function() rnorm(1, (1/24)/4, (1/24)/4/7.5)) %>% 
+            release("extraction") %>% 
+            seize("filtration") %>% 
+            timeout(function() rnorm(1, 1/24, 1/24/7.5)) %>% 
+            release("filtration") %>% 
+            seize("solvent") %>% 
+            timeout(function() 1/24) %>% 
+            release("solvent") %>% 
+            seize("decarbonization") %>% 
+            timeout(function() rnorm(1, 2, 1/3)) %>% 
+            release("decarbonization") %>% 
+            seize("distillation") %>% 
+            timeout(function() rnorm(1, 18/24, 1/12)) %>% 
+            release("distillation"))
+            
+
+First_Grow <- simmer() %>% 
+  add_resource("flowering", capacity = 1, queue_size = Inf) %>% 
+  add_resource("drying", capacity = 1, queue_size = Inf) %>% 
+  add_resource("trimming", capacity = 1, queue_size = Inf) %>% 
+  add_resource("curing", capacity = 1, queue_size = Inf) %>% 
+  add_resource("freeze", capacity = 1, queue_size = Inf) %>% 
+  add_resource("extraction", capacity = 1, queue_size = Inf) %>% 
+  add_resource("filtration", capacity = 1, queue_size = Inf) %>% 
+  add_resource("solvent", capacity = 1, queue_size = Inf) %>% 
+  add_resource("decarbonization", capacity = 1, queue_size = Inf) %>% 
+  add_resource("distillation", capacity = 1, queue_size = Inf) %>% 
+  add_generator("output_", production, at(0)) #get the first grow
+
+
+simmer::run(First_Grow)
+
+sim_data <- get_mon_arrivals(First_Grow)
+
+sim_data})
+
+```
+
+
+## From sales to scales
+> - What's the time length for the first finished product to be made out by testing 500 times?".
+```{r}
+library(simmer)
+
+# time unit in days
+x <- purrr::map_df(1:500, ~{
+
+production <- trajectory("produce") %>% 
+    seize("flowering") %>% 
+    timeout(function() runif(1, 56, 77)) %>% 
+    release("flowering") %>% 
+    seize("drying") %>% 
+    timeout(function() runif(1, 7, 10)) %>% 
+    release("drying") %>% 
+    branch(function() sample(1:2, 1, prob = c(0.45, 0.55)), continue = c(TRUE, TRUE),
+          trajectory() %>% 
+            seize("trimming") %>% 
+            timeout(function() rnorm(1, 1/24, (1/24)/4)) %>% 
+            release("trimming") %>% 
+            seize("curing") %>% 
+            timeout(function() runif(1, 30, 120)) %>% 
+            release("curing"),
+          trajectory() %>%  
+            seize("freeze") %>% 
+            timeout(function() (1/24)/3) %>% 
+            release("freeze") %>% 
+            seize("extraction") %>% 
+            timeout(function() rnorm(1, (1/24)/4, (1/24)/4/7.5)) %>% 
+            release("extraction") %>% 
+            seize("filtration") %>% 
+            timeout(function() rnorm(1, 1/24, 1/24/7.5)) %>% 
+            release("filtration") %>% 
+            seize("solvent") %>% 
+            timeout(function() 1/24) %>% 
+            release("solvent") %>% 
+            seize("decarbonization") %>% 
+            timeout(function() rnorm(1, 2, 1/3)) %>% 
+            release("decarbonization") %>% 
+            seize("distillation") %>% 
+            timeout(function() rnorm(1, 18/24, 1/12)) %>% 
+            release("distillation"))
+            
+
+First_Grow <- simmer() %>% 
+  add_resource("flowering", capacity = 1, queue_size = Inf) %>% 
+  add_resource("drying", capacity = 1, queue_size = Inf) %>% 
+  add_resource("trimming", capacity = 1, queue_size = Inf) %>% 
+  add_resource("curing", capacity = 1, queue_size = Inf) %>% 
+  add_resource("freeze", capacity = 1, queue_size = Inf) %>% 
+  add_resource("extraction", capacity = 1, queue_size = Inf) %>% 
+  add_resource("filtration", capacity = 1, queue_size = Inf) %>% 
+  add_resource("solvent", capacity = 1, queue_size = Inf) %>% 
+  add_resource("decarbonization", capacity = 1, queue_size = Inf) %>% 
+  add_resource("distillation", capacity = 1, queue_size = Inf) %>% 
+  add_generator("output_", production, at(0)) #get the first grow
+
+
+simmer::run(First_Grow)
+
+sim_data <- get_mon_arrivals(First_Grow)
+
+sim_data})
+
+mean(x$activity_time)   
+```
+
+
+## From sales to scales
+> - How to optimize and production?".
+![alt text here](55.png) 
+
+
+
+## From sales to scales
+> - If we Double flowering and curring machine".
+> - Random two years time".
+![alt text here](66.png) 
+
+
+## Return On Investment
+> - Break down of yearly costs".
+```{r, echo = TRUE}
+Cost_breakdown <- data.frame(item = c("Rent", "Lighting", "Climate Control", 
+                    "Irrigation", "Consumables"),  
+           low = c(100000, 5000, 10000, 2500, 25000), 
+           mid = c(150000, 10000, 15000, 3000, 50000), 
+           high = c(300000, 20000, 17000, 5000, 75000)) |>
+  flextable::flextable(cwidth = 2.5, cheight = .15)
+
+```
+```{r, echo = FALSE}
+Cost_breakdown
+```
+
+
+
+## Anticipated Profit
+How much would Cloud likely make over the next 5 years?  
+```{r}
+library(triangle)
+
+five_years_profit <- replicate(100, {
+  Rent <- rtriangle(n = 5, a = 100000, b = 300000, c = 150000)
+  Lightning <- rtriangle(n = 5, a = 5000, b = 20000, c = 10000)
+  Climate_control <- rtriangle(n = 5, a = 10000, b = 17000, c = 15000)
+  Irrigation <- rtriangle(n = 5, a = 2500, b = 5000, c = 3000)
+  Consumables <- rtriangle(n = 5, a = 25000, b = 75000, c = 50000)
+  
+  Cost_sum <- Rent + Lightning + Climate_control + Irrigation + Consumables
+  
+  Production_per_year <- rnorm(5, 1400, 300)
+  
+  Revenue_per_pound <- 1000000 / 1400
+  
+  sum((Production_per_year * Revenue_per_pound) - Cost_sum)
+  
+})
+
+hist(five_years_profit)
+```

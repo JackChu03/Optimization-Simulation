@@ -1,0 +1,299 @@
+---
+title: "Homework 1"
+author: "Jack Chu"
+format:
+  html:
+    theme: united
+    toc: true
+    toc-location: left
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Bronze
+
+### Question 1: Production Cost Minimization
+
+Code the following model so that you minimize production and storage costs over a 4 month period:
+
+$$
+Min: \sum\limits_{i=1}^4 (12m_i + 2s_i) \\
+m1 - s1 = 100 \\
+s1 + m2 - s2 = 200 \\
+s2 + m3 - s3 = 150 \\
+s3 + m4 - s4 = 400 \\
+m1 \leq 400 \\
+m2 \leq 400 \\
+m3 \leq 300 \\
+m4 \leq 300
+$$
+
+
+What is the total cost for this problem? Provide a very brief explanation of the first 4 constraints.
+
+```{r}
+library(linprog)
+
+c_vec <- c(m1 = 12, s1 = 2, m2 = 12, s2 = 2, m3 = 12, s3 = 2, m4 = 12, s4 = 2)
+
+
+b_vec <- c(stor_1 = 100,
+           stor_2 = 200,
+           stor_3 = 150,
+           stor_4 = 400,
+           m1 = 400,
+           m2 = 400,
+           m3 = 300,
+           m4 = 300)
+
+A_mat <- rbind(stor_1 = c(1, -1, 0, 0, 0, 0, 0, 0),
+               stor_2 = c(0, 1, 1, -1, 0, 0, 0, 0),
+               stor_3 = c(0, 0, 0, 1, 1, -1, 0, 0),
+               stor_4 = c(0, 0, 0, 0, 0, 1, 1, -1),
+               min_1 = c(1, 0, 0, 0, 0, 0, 0, 0),
+               min_2 = c(0, 0, 1, 0, 0, 0, 0, 0),
+               min_3 = c(0, 0, 0, 0, 1, 0, 0, 0),
+               min_4 = c(0, 0, 0, 0, 0, 0, 1, 0))
+               
+
+con_dir <- c("=", "=", "=", "=", "<=", "<=", "<=", "<=")
+
+res <- linprog::solveLP(c_vec, b_vec, A_mat, FALSE, con_dir, lpSolve=TRUE)
+
+res
+```
+The total cost for this problem is ＄10400. The first four constraints mean that
+to fulfill the demand of the products each month(total four months), we have to
+make out some products, and if we make out too many products for a single month
+which exceed the demand, we can store the product for next month use. 
+
+
+### Question 2: Convenience Store Diet
+
+The average resident of Paris, Illinois needs to consume at least 2000 calories a day from the nearest convenience store; naturally, it needs to be done as cheaply as possible and a healthy diet typically consists of at least 10 ounces of sugar. A slice of pizza costs 3 dollars, coffee is 1 dollar, Red Bull is usually on sale for 1.50 per can, and candy bars cost 1 dollar.
+
+A slice of pizza contains 285 calories and practically 0 sugar.
+
+A cup of sweet coffee contains 1/2 oz of sugar and 100 calories.
+
+A can of Red Bull contains 168 calories and 2 oz of sugar.
+
+A candy bar contains about 200 calories and 3 oz of sugar.
+
+What is the total cost to consume the proper amount of food and how much of each food should be bought?
+
+```{r}
+c_vec <- c(3, 1, 1.5, 1)
+b_vec <- c(2000, 10)
+A_mat <- rbind(c(285, 100, 168, 200),
+               c(0, 0.5, 2, 3))
+con_dir <- c(">=", ">=")
+
+res <- linprog::solveLP(c_vec, b_vec, A_mat, FALSE, con_dir)
+
+res
+```
+The total cost is 10 dollars and we should buy 10 candy bars.
+
+### Question 3: Steel Mill Emissions
+
+A steel mill is trying to reduce emissions of three particular kinds of air pollutants.
+
+The following are clean air standards for the facility (in millions of pounds):
+
+```{r}
+data.frame(pollutant = c("particulates", "sulfer oxides", "hydrocarbons"), 
+           requiredReduction = c(60, 150, 125))
+```
+
+The steel mill has two major sources of these pollutants: blast furnaces and open-hearth furnances. To reduce the pollutants from these two furnace types, engineers are exploring using taller smokestacks, filters, and cleaner fuels.
+
+The following are maximum estimated reduction rates (in millions of pounds) for various abatement methods:
+
+```{r}
+data.frame(pollutant = c("particulates", "sulfer oxides", "hydrocarbons"), 
+           ts_blastFurnace = c(12, 35, 37), 
+           ts_openHearth = c(9, 42, 53), 
+           filter_blastFurnace = c(25, 18, 28), 
+           filter_openHearth = c(20, 31, 24), 
+           fuels_blastFurnace = c(17, 56, 29), 
+           fuels_openHearth = c(13, 49, 20))
+```
+
+Each of these abatement methods can be used to any proportion.
+
+The following table specifies the cost for fully-adopting each method (if the proportion is 1):
+
+```{r}
+data.frame(method = c("taller smokestacks", "filters", "fuels"), 
+           blastFurnaces = c(8, 7, 11), 
+           openHearth = c(10, 6, 9))
+```
+
+
+The ultimate goal of the steel mill is to minimize the money spent on each abatement method, while hitting the require reduction thresholds.
+
+This creates the following linear program:
+
+$$Minimize Z = 8_{x1} + 10_{x2} +7_{x3} +6_{x4} + 11_{x5} + 9_{x6}$$
+
+**Subject to the following emission reduction constrains:**
+
+$$12_{x1} + 9_{x2} + 25_{x3} + 20_{x4} + 17_{x5} + 13_{x6} \geq 60 \\
+35_{x1} + 42_{x2} + 18_{x3} + 31_{x4} + 56_{x5} + 49_{x6} \geq 150 \\
+37_{x1} + 53_{x2} + 28_{x3} + 24_{x4} + 29_{x5} + 20_{x6} \geq 125
+$$
+
+**Subject to the following technology limitation constrains:**
+
+$$x_j \leq 1$$
+
+What is each abatement methods optimal proportion?
+
+```{r}
+library(linprog)
+
+c_vec <- c(x1 = 8, x2 = 10, x3 = 7, x4 = 6, x5 = 11, x6 = 9)
+
+
+b_vec <- c(r_1 = 60,
+           r_2 = 150,
+           r_3 = 125,
+           x_1 =1, 
+           x_2 =1, 
+           x_3 =1, 
+           x_4 =1, 
+           x_5 =1, 
+           x_6 =1)
+
+
+A_mat <- rbind(r_1 = c(12, 9, 25, 20, 17, 13),
+               r_2 = c(35, 42, 18, 31, 56, 49),
+               r_3 = c(37, 53, 28, 24, 29, 20),
+               x_1 = c(1, 0, 0, 0, 0, 0),
+               x_2 = c(0, 1, 0, 0, 0, 0),
+               x_3 = c(0, 0, 1, 0, 0, 0),
+               x_4 = c(0, 0, 0, 1, 0, 0),
+               x_5 = c(0, 0, 0, 0, 1, 0),
+               x_6 = c(0, 0, 0, 0, 0, 1))
+               
+               
+
+con_dir <- c(">=", ">=", ">=", "<=", "<=", "<=", "<=", "<=", "<=")
+
+res <- linprog::solveLP(c_vec, b_vec, A_mat, FALSE, con_dir, lpSolve=TRUE)
+
+res
+```
+Opt Propotion:
+ts_blastFurnace = 1.0000000
+ts_openHearth = 0.6226975
+filter_blastFurnace = 0.3434794
+filter_openHearth = 1.0000000
+fuels_blastFurnace = 0.0475728
+fuels_openHearth = 1.0000000
+
+          
+## Silver
+
+Let's extend that question 1 just a little bit more.
+
+The cost of labor over the next four months will go up by 3 dollars a month, starting at 12 dollars. Every unit that gets made needs to go into storage and it requires 2 dollars to store each unit. Every unit made requires 30 minutes of labor. Fortunately, exact demand and available labor are known months in advance and are as follows: demand = 100, 200, 150, 400; max labor hours = 200, 200, 150, 150. Anything made during a month can be stored and reused the following month. Add the increased labor costs and resources to your model, and then report the production plan.
+
+
+```{r}
+library(linprog)
+
+library(linprog)
+
+c_vec <- c(m1 = 12, s1 = 2, m2 = 15, s2 = 2, m3 = 18, s3 = 2, m4 = 21, s4 = 2)
+
+
+b_vec <- c(stor_1 = 100,
+           stor_2 = 200,
+           stor_3 = 150,
+           stor_4 = 400,
+           m1 = 400,
+           m2 = 400,
+           m3 = 300,
+           m4 = 300,
+           l1 = 200,
+           l2 = 200,
+           l3 = 150,
+           l4 = 150)
+
+
+A_mat <- rbind(stor_1 = c(1, -1, 0, 0, 0, 0, 0, 0),
+               stor_2 = c(0, 1, 1, -1, 0, 0, 0, 0),
+               stor_3 = c(0, 0, 0, 1, 1, -1, 0, 0),
+               stor_4 = c(0, 0, 0, 0, 0, 1, 1, -1),
+               min_1 = c(1, 0, 0, 0, 0, 0, 0, 0),
+               min_2 = c(0, 0, 1, 0, 0, 0, 0, 0),
+               min_3 = c(0, 0, 0, 0, 1, 0, 0, 0),
+               min_4 = c(0, 0, 0, 0, 0, 0, 1, 0),
+               l1 = c(0.5, 0, 0, 0, 0, 0, 0, 0),
+               l2 = c(0, 0, 0.5, 0, 0, 0, 0, 0),
+               l3 = c(0, 0, 0, 0, 0.5, 0, 0, 0),
+               l4 = c(0, 0, 0, 0, 0, 0, 0.5, 0))
+               
+
+con_dir <- c("=", "=", "=", "=", "<=", "<=", "<=", "<=", "<=", "<=", "<=", "<=")
+
+res <- linprog::solveLP(c_vec, b_vec, A_mat, FALSE, con_dir, lpSolve=TRUE)
+
+res
+```
+Since I add the restriction to total labor hours for each month and the cost
+of production is increasing by 3 dollars each month, the ultimate minimum cost
+will be $14100, which is about 400 dollars more than the original one. With m1 = 400, s1 = 300, m2 = 400, s2 = 500, m3 = 50, s3 = 400, m4 = 0, s4 = 0
+
+
+## Gold
+
+The hardest of all questions -- put down your Google and create your own linear optimization problem! It can be a minimization or maximization problem. You need at least 3 variables and at least 3 constraints. Explain the set-up, write the notation, code it up, and then tell me what you found! Seriously, no need to involve Google in this -- come up with something on your own.
+
+Suppose I am a purchasing manager in Boeing and I want to select the materials for one of my aviation products. I want to minimize the total cost of this project. There are total four materials that can help make out the product. Two of them are metal parts, I will call them Metal_A and Metal_B. The other two are carbon composite parts. I will call them C1 and C2. And for metal_A, it costs 120 per unit, Metal_B costs 90, C1 costs 60 and C2 costs 40 dollars per unit. To make out the aviation product and get the materials as soon as possible, there are certainly some requirements. The first is the weight of the product, it should be as low as possible so it won't add weight on the plane and the maximum weight should not exceed 600 lbs. To successfully make out the product, we should have at least 40 metal parts and 30 carbon composite parts.
+
+The weight for each materials are shown below
+```{r}
+data.frame(materials = c("MA", "MB", "C1", "C2"), 
+           weight_lbs = c(9, 12, 3, 5))
+```
+
+Secondly, the shipping cost shouldn't be above $1500 since our budget for this 
+aviation project is limited. I then decide my transportation ways to get my materials are by shipping and trucks.
+
+```{r}
+data.frame(Shipping_plus_Trucks_Cost = "Cost", 
+           MA = 27,
+           MB = 23,
+           C1 = 20,
+           C2 = 17)
+```
+
+
+```{r}
+library(linprog)
+
+c_vec <- c(MA = 120, MB = 90, C1 = 60, C2 = 40)
+
+b_vec <- c(trans_cost = 1500,
+           weight = 600,
+           metal = 40,
+           composite = 30)
+
+A_mat <- rbind(trans_cost = c(27, 23, 20, 17),
+                weight = c(9, 12, 3, 5),
+                res = c(1, 1, 0, 0),
+                res2= c(0, 0, 1, 1))
+               
+
+con_dir <- c("<=", "<=", "=", "=")
+
+res <- linprog::solveLP(c_vec, b_vec, A_mat, FALSE, con_dir, lpSolve=TRUE)
+
+res
+```
+In the end, I find out I need to purchase 40 units of metal_b parts, and 15 units for carbon_1 and 15 units for carbon_2, thus I can minimize my project cost to $5100.
