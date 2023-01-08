@@ -6,3 +6,5 @@ Using R programming language to optimize business circumstances and simulate bus
 * [R Optimization Infrastructure]
 * [Linear Programming]
 * [Trajectory Analysis]
+* [Triangle Distribution in r]
+* [Paralleled Computing]
